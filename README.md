@@ -1,4 +1,4 @@
-# SEAI — Self-Evolving AI Architecture (Final Year Project)
+# SEAI — Self-Evolving AI Architecture
 
 This project implements a Self-Evolving AI Architecture (SEAI) for concept drift detection and adaptive model updating using:
 
