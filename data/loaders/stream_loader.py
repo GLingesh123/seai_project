@@ -1,17 +1,23 @@
 """
-Unified Stream Loader for SEAI
+Unified Stream Loader for SEAI — FIXED VERSION
 
 Combines:
 - SyntheticStream (data generation)
 - DriftInjector (drift timing control)
 
 Provides a single clean interface for trainers and experiments.
+
+Fixes:
+- prevents single-batch stream bug
+- adds config safety validation
+- adds optional debug visibility
 """
 
 from typing import Optional, Tuple, Dict
 
 from data.generators.synthetic_stream import SyntheticStream
 from data.loaders.drift_injector import DriftInjector
+
 from config import (
     INPUT_DIM,
     STREAM_CHUNK_SIZE,
@@ -31,9 +37,21 @@ class StreamLoader:
         input_dim: int = INPUT_DIM,
         chunk_size: int = STREAM_CHUNK_SIZE,
         total_samples: int = STREAM_TOTAL_SAMPLES,
-        seed: int = SEED
+        seed: int = SEED,
+        debug: bool = False
     ):
-        # data generator
+
+        # ---------- safety guard ----------
+        if total_samples <= chunk_size:
+            raise ValueError(
+                f"STREAM_TOTAL_SAMPLES ({total_samples}) must be "
+                f"> STREAM_CHUNK_SIZE ({chunk_size}) — "
+                f"otherwise stream ends after one batch."
+            )
+
+        self.debug = debug
+
+        # ---------- data generator ----------
         self.stream = SyntheticStream(
             input_dim=input_dim,
             chunk_size=chunk_size,
@@ -41,10 +59,17 @@ class StreamLoader:
             seed=seed
         )
 
-        # drift controller
+        # ---------- drift controller ----------
         self.injector = DriftInjector(scenario or {"type": "none"})
 
         self.step = 0
+
+        if self.debug:
+            print(
+                f"[StreamLoader] init "
+                f"chunk={chunk_size} total={total_samples} "
+                f"max_batches≈{total_samples // chunk_size}"
+            )
 
     # -------------------------------------------------
     # Public API
@@ -66,6 +91,8 @@ class StreamLoader:
         )
 
         if batch is None:
+            if self.debug:
+                print("[StreamLoader] stream exhausted at step", self.step)
             return None
 
         X, y = batch
@@ -74,8 +101,15 @@ class StreamLoader:
             "step": self.step,
             "drift_mode": drift_mode,
             "gradual_progress": round(progress, 3),
-            "stream_state": self.stream.current_state()
+            "stream_generated": self.stream.generated
         }
+
+        if self.debug:
+            print(
+                f"[STREAM] step={self.step} "
+                f"generated={self.stream.generated} "
+                f"drift={drift_mode}"
+            )
 
         self.step += 1
         return X, y, info
@@ -89,5 +123,11 @@ class StreamLoader:
         self.stream.generated = 0
         self.step = 0
 
+        if self.debug:
+            print("[StreamLoader] reset")
+
     def describe(self) -> str:
-        return f"StreamLoader(step={self.step}, injector={self.injector.describe()})"
+        return (
+            f"StreamLoader(step={self.step}, "
+            f"injector={self.injector.describe()})"
+        )

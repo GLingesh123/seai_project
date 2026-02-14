@@ -49,9 +49,9 @@ class SyntheticStream:
 
     def set_sudden_drift(
         self,
-        feature_shift: float = 2.0,
-        boundary_shift: float = 1.5,
-        noise: float = 0.2
+        feature_shift: float = 4.0,
+        boundary_shift: float = 3.0,
+        noise: float = 0.6
     ):
         """Apply sudden distribution change"""
         self.drift_offset = feature_shift
@@ -116,23 +116,12 @@ class SyntheticStream:
         drift_mode: Optional[str] = None,
         gradual_progress: float = 0.0
     ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        """
-        Get next stream chunk.
-
-        drift_mode:
-            None
-            "sudden"
-            "gradual"
-            "reset"
-
-        gradual_progress:
-            value between 0 and 1 for gradual drift
-        """
 
         if self.generated >= self.total_samples:
             return None
 
-        # apply drift mode
+        # -------- APPLY DRIFT --------
+
         if drift_mode == "sudden":
             self.set_sudden_drift()
 
@@ -142,11 +131,23 @@ class SyntheticStream:
         elif drift_mode == "reset":
             self.reset_drift()
 
+        # -------- DEBUG AFTER APPLY --------
+        # if drift_mode:
+        #     print(
+        #         f"🔥 DRIFT APPLIED mode={drift_mode} "
+        #         f"offset={self.drift_offset:.2f} "
+        #         f"boundary={self.boundary_shift:.2f} "
+        #         f"noise={self.noise_level:.2f}"
+        #     )
+
+        # -------- GENERATE --------
+
         X = self._generate_features()
         y = self._generate_labels(X)
 
         self.generated += self.chunk_size
         return X, y
+
 
     # -------------------------
     # Diagnostics

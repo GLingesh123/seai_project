@@ -71,7 +71,8 @@ class AdaptationLoop:
                 self.replay.add_batch(X, y)
 
             # ---- drift detection ----
-            err_signal = self.trainer.error_signal(acc)
+# use loss instead of accuracy-derived error
+            err_signal = float(loss)
             drift_out = self.detector.update(err_signal)
 
             drift_flag = drift_out["drift"]
