@@ -20,7 +20,7 @@ After cloning the repository, you only need to create a virtual environment and 
 
 STEPS 
 
-1 - git clone https://github.com/GLingesh123/SEAI.git
+1 - git clone https://github.com/GLingesh123/seai_project.git
 2 - cd seai_project
 
 3 - Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
