@@ -1,0 +1,100 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# =========================
+# Virtual Environment
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Build / Distribution
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# Jupyter Notebooks
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Results & Outputs
+# =========================
+results/
+outputs/
+reports/
+
+# =========================
+# Model Checkpoints
+# =========================
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# =========================
+# Dataset Files (keep structure, not data)
+# =========================
+data/raw/*
+data/processed/*
+!data/raw/.keep
+!data/processed/.keep
+
+# =========================
+# Streamlit
+# =========================
+.streamlit/
+.streamlit/secrets.toml
+
+# =========================
+# Caches
+# =========================
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# =========================
+# IDE — VS Code / PyCharm
+# =========================
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Temporary
+# =========================
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
