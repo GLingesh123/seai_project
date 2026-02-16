@@ -100,7 +100,7 @@ class ExperimentLogger:
         with open(path, "w") as f:
             json.dump(payload, f, indent=2)
 
-        print(f"Saved JSON log → {path}")
+        print(f"Saved JSON log -> {path}")
 
     def save_csv(self):
         if not self.metrics:
@@ -111,7 +111,7 @@ class ExperimentLogger:
         path = f"{RESULTS_DIR}/csv/{self.run_id}.csv"
         df.to_csv(path, index=False)
 
-        print(f"Saved CSV log → {path}")
+        print(f"Saved CSV log -> {os.path}")
 
     # -------------------------------------------------
     # Summary

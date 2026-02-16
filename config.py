@@ -1,23 +1,11 @@
-"""
-SEAI Project Global Configuration
-All tunable parameters must live here.
-Do NOT scatter constants across modules.
-"""
-
 from utils.device import get_device
 
-
-# =====================================================
-# Core Runtime
-# =====================================================
+# ================= CORE =================
 
 DEVICE = get_device()
 SEED = 42
 
-
-# =====================================================
-# Paths
-# =====================================================
+# ================= PATHS =================
 
 DATA_DIR = "data/"
 RAW_DATA_DIR = "data/raw/"
@@ -27,10 +15,7 @@ LOG_DIR = "logs/"
 RESULTS_DIR = "results/"
 CHECKPOINT_DIR = "checkpoints/"
 
-
-# =====================================================
-# Synthetic Stream Settings
-# =====================================================
+# ================= STREAM =================
 
 INPUT_DIM = 20
 NUM_CLASSES = 2
@@ -38,13 +23,7 @@ NUM_CLASSES = 2
 STREAM_CHUNK_SIZE = 128
 STREAM_TOTAL_SAMPLES = 20000
 
-STREAM_BASE_MEAN = 0.0
-STREAM_BASE_STD = 1.0
-
-
-# =====================================================
-# Drift Settings (used by drift injector / scenarios)
-# =====================================================
+# ================= DRIFT INJECTION =================
 
 DRIFT_SUDDEN_FEATURE_SHIFT = 2.0
 DRIFT_SUDDEN_BOUNDARY_SHIFT = 1.5
@@ -54,97 +33,82 @@ DRIFT_GRADUAL_MAX_FEATURE_SHIFT = 2.0
 DRIFT_GRADUAL_MAX_BOUNDARY_SHIFT = 1.5
 DRIFT_GRADUAL_MAX_NOISE = 0.3
 
+# ================= DRIFT DETECTION =================
 
-# =====================================================
-# Self-Supervised Learning (Autoencoder)
-# =====================================================
+DRIFT_DELTA = 0.01
+DRIFT_DELTA_TEST = 0.1
 
-SSL_HIDDEN_DIM = 64
-LATENT_DIM = 16
+DRIFT_MIN_VOTES = 2
+DRIFT_MIN_VOTES_BASELINE = 1
+DRIFT_MATCH_TOLERANCE = 20
+
+# ================= SSL =================
+
+SSL_HIDDEN_DIM = 128
+LATENT_DIM = 32
 
 SSL_LR = 1e-3
-SSL_EPOCHS = 5
+SSL_WEIGHT_DECAY = 1e-5
+SSL_LOSS_WEIGHT = 0.05
+SSL_PRETRAIN_STEPS = 300
 
-
-# =====================================================
-# Baseline Model (MLP)
-# =====================================================
+# ================= MODELS =================
 
 MLP_HIDDEN_DIM = 64
-
-
-# =====================================================
-# Transformer Model
-# =====================================================
 
 TRANSFORMER_DIM = 32
 TRANSFORMER_HEADS = 4
 TRANSFORMER_LAYERS = 2
-TRANSFORMER_DROPOUT = 0.1
 
+# ================= TRAINING =================
 
-# =====================================================
-# Training
-# =====================================================
-
-BATCH_SIZE = 128
 LR = 1e-3
 WEIGHT_DECAY = 1e-5
+GRAD_CLIP = 5.0
 
-MAX_STEPS = STREAM_TOTAL_SAMPLES // STREAM_CHUNK_SIZE
+# ================= REPLAY =================
 
-
-# =====================================================
-# Replay Buffer (Continual Learning)
-# =====================================================
-
-REPLAY_BUFFER_SIZE = 500
+REPLAY_BUFFER_SIZE = 5000
 REPLAY_BATCH_SIZE = 128
-REPLAY_AFTER_DRIFT_STEPS = 2
+REPLAY_AFTER_DRIFT_STEPS = 6
 
+# ================= EWC =================
 
+EWC_LAMBDA = 5.0
+EWC_FISHER_SAMPLES = 200
+
+# ================= META =================
+
+META_WARM_INNER_LR = 1e-3
+META_WARM_INNER_STEPS = 3
+
+META_SAVE_PATH = CHECKPOINT_DIR + "meta_init.pt"
+
+# ================= EXPERIMENT =================
+
+EXPERIMENT_REPEAT = 3
+
+# ================= DEBUG =================
+
+VERBOSE = True
+# =====================================================
+# Debug / Verbosity Controls
+# =====================================================
+
+VERBOSE = True
+
+DEBUG_STREAM = False
+DEBUG_DRIFT = False
+DEBUG_REPLAY = False
+DEBUG_ADAPT = False
 # =====================================================
 # Continual Learning — EWC
 # =====================================================
 
-EWC_LAMBDA = 0.4
-EWC_FISHER_SAMPLES = 256
+EWC_LAMBDA = 5.0
 
+# number of batches used to estimate Fisher
+EWC_FISHER_SAMPLES = 200
 
-# =====================================================
-# Drift Detector (River ADWIN)
-# =====================================================
-
-DRIFT_DELTA = 0.1
-
-
-# =====================================================
-# Meta Initialization
-# =====================================================
-
-META_PRETRAIN_ROUNDS = 3
-META_SAVE_PATH = CHECKPOINT_DIR + "meta_init.pt"
-
-
-# =====================================================
-# Experiment Settings
-# =====================================================
-
-EXPERIMENT_REPEAT = 3
-SAVE_JSON_RESULTS = True
-SAVE_MODEL_CHECKPOINTS = True
-
-
-# =====================================================
-# Dashboard
-# =====================================================
-
-STREAMLIT_PORT = 8501
-DASHBOARD_REFRESH_SEC = 2
-
-
-# =====================================================
-# Debug
-# =====================================================
-
-VERBOSE = True
+# batch size per Fisher sample draw
+EWC_FISHER_BATCH = 64

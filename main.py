@@ -1,32 +1,43 @@
 """
-SEAI Main Experiment Runner
+SEAI Main Runner — Advanced Pipeline
 
-One-command execution for baseline adaptive pipeline.
+Runs full SEAI pipeline:
 
-Runs:
-stream → trainer → drift detection → replay adaptation
-→ logging → metrics → plot
+stream
+→ model
+→ trainer
+→ drift manager (multi-detector)
+→ replay buffer
+→ EWC continual learning
+→ adaptation loop
 """
 
 import argparse
 
 from data.loaders.stream_loader import StreamLoader
 from models.baseline.mlp import BaselineMLP
+
 from training.trainer import StreamTrainer
-from drift.drift_detector import DriftDetector
-from replay.buffer import ReplayBuffer
-from experiments.logger import ExperimentLogger
 from training.adaptation_loop import AdaptationLoop
 
-from evaluation.metrics import build_report
-from visualization.plot_accuracy import plot_from_csv
+from drift.drift_manager import DriftManager
 
+from replay.buffer import ReplayBuffer
+from continual_learning.ewc import EWC
 
-# -------------------------------------------------
+from experiments.logger import ExperimentLogger
+
+from config import (
+    DRIFT_MIN_VOTES,
+    EWC_LAMBDA
+)
+
+# =====================================================
 # Drift Scenarios
-# -------------------------------------------------
+# =====================================================
 
 def get_scenario(name: str):
+
     if name == "none":
         return {"type": "none"}
 
@@ -34,61 +45,67 @@ def get_scenario(name: str):
         return {"type": "sudden", "steps": [30]}
 
     if name == "gradual":
-        return {"type": "gradual", "start": 30, "end": 60}
+        return {"type": "gradual", "start": 30, "end": 80}
 
     if name == "recurring":
-        return {"type": "recurring", "steps": [25, 60, 95]}
+        return {"type": "recurring", "steps": [25, 70, 110]}
 
     raise ValueError("Unknown scenario")
 
 
-# -------------------------------------------------
-# Main Run
-# -------------------------------------------------
+# =====================================================
+# Experiment
+# =====================================================
 
 def run_experiment(args):
 
     scenario = get_scenario(args.scenario)
-
     print("Scenario:", scenario)
 
-    # ---- pipeline components ----
+    # ---------- Stream ----------
     stream = StreamLoader(scenario=scenario)
+
+    # ---------- Model ----------
     model = BaselineMLP()
+
+    # ---------- Trainer ----------
     trainer = StreamTrainer(model)
-    detector = DriftDetector()
+
+    # ---------- Continual Learning (EWC) ----------
+    ewc = EWC(model, lambda_ewc=EWC_LAMBDA)
+    trainer.register_regularizer(ewc.penalty)
+
+    # ---------- Drift Manager ----------
+    drift_manager = DriftManager(
+        min_votes=DRIFT_MIN_VOTES
+    )
+
+    # ---------- Replay ----------
     replay = ReplayBuffer()
+
+    # ---------- Logger ----------
     logger = ExperimentLogger(args.name)
 
+    # ---------- Adaptation Loop ----------
     loop = AdaptationLoop(
         stream_loader=stream,
         trainer=trainer,
-        drift_detector=detector,
+        drift_detector=drift_manager,
         replay_buffer=replay,
+        continual_module=ewc,
         logger=logger
     )
 
-    # ---- run ----
+    # ---------- Run ----------
     loop.run(max_steps=args.steps)
 
-    # ---- metrics ----
-    csv_path = f"results/csv/{logger.run_id}.csv"
-
-    report = build_report(
-        __import__("pandas").read_csv(csv_path)
-    )
-
-    print("\n=== REPORT ===")
-    for k, v in report.items():
-        print(k, ":", v)
-
-    # ---- plot ----
-    plot_from_csv(csv_path, rolling_window=10)
+    print("\nSEAI run complete.")
+    print(loop.summary())
 
 
-# -------------------------------------------------
+# =====================================================
 # CLI
-# -------------------------------------------------
+# =====================================================
 
 if __name__ == "__main__":
 
@@ -104,13 +121,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--steps",
         type=int,
-        default=120
+        default=200
     )
 
     parser.add_argument(
         "--name",
         type=str,
-        default="baseline_run"
+        default="seai_run"
     )
 
     args = parser.parse_args()

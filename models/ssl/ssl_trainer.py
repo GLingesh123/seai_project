@@ -1,10 +1,7 @@
 """
-SEAI SSL Trainer
+SEAI SSL Trainer — Final Version
 
-Trains SSLAutoencoder using unlabeled stream batches.
-Self-supervised reconstruction objective.
-
-Does NOT depend on labels.
+Trains SSL autoencoder on unlabeled stream batches.
 """
 
 from typing import Optional
@@ -17,21 +14,21 @@ from utils.seed import set_global_seed
 
 
 class SSLTrainer:
-    """
-    Trainer for SSL autoencoder.
-    """
 
     def __init__(
         self,
         model,
         lr: float = 1e-3,
         weight_decay: float = 1e-5,
+        grad_clip: float = 5.0,
         seed: int = 42
     ):
         set_global_seed(seed)
 
-        self.model = model
+        self.model = model.to(DEVICE)
         self.model.train()
+
+        self.grad_clip = grad_clip
 
         self.optimizer = Adam(
             self.model.parameters(),
@@ -43,31 +40,36 @@ class SSLTrainer:
         self.loss_history = []
 
     # -------------------------------------------------
-    # Single Batch Train
-    # -------------------------------------------------
 
     def train_batch(self, X):
 
-        X = torch.tensor(X, dtype=torch.float32, device=DEVICE)
+        X = torch.as_tensor(
+            X,
+            dtype=torch.float32,
+            device=DEVICE
+        )
 
-        recon = self.model(X)
-
-        loss = self.model.reconstruction_loss(X, recon)
+        # ✅ use model SSL loss (denoising etc.)
+        loss = self.model.loss(X)
 
         self.optimizer.zero_grad()
         loss.backward()
+
+        if self.grad_clip and self.grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(),
+                self.grad_clip
+            )
+
         self.optimizer.step()
 
         self.global_step += 1
-        loss_val = loss.item()
+
+        loss_val = float(loss.item())
         self.loss_history.append(loss_val)
 
-        return {
-            "ssl_loss": loss_val
-        }
+        return {"ssl_loss": loss_val}
 
-    # -------------------------------------------------
-    # Stream Pretraining Loop
     # -------------------------------------------------
 
     def pretrain_stream(
@@ -75,12 +77,10 @@ class SSLTrainer:
         stream_loader,
         steps: int = 200
     ):
-        """
-        Pretrain encoder from stream batches.
-        Ignores labels.
-        """
 
         print(f"[SSL] pretraining for {steps} steps")
+
+        self.model.train()
 
         for _ in range(steps):
 
@@ -88,7 +88,7 @@ class SSLTrainer:
             if batch is None:
                 break
 
-            X, y, info = batch  # y ignored
+            X, _, _ = batch
 
             stats = self.train_batch(X)
 
@@ -101,26 +101,28 @@ class SSLTrainer:
         print("[SSL] pretraining complete")
 
     # -------------------------------------------------
-    # Encode Helper
-    # -------------------------------------------------
 
     @torch.no_grad()
     def encode_numpy(self, X):
-        """
-        Encode numpy batch → numpy latent
-        """
+
         self.model.eval()
 
-        X = torch.tensor(X, dtype=torch.float32, device=DEVICE)
+        X = torch.as_tensor(
+            X,
+            dtype=torch.float32,
+            device=DEVICE
+        )
+
         z = self.model.encode(X)
+
+        self.model.train()
 
         return z.cpu().numpy()
 
     # -------------------------------------------------
-    # Summary
-    # -------------------------------------------------
 
     def summary(self):
+
         if not self.loss_history:
             return {}
 

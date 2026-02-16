@@ -1,38 +1,31 @@
 """
-SEAI Self-Supervised Autoencoder
-
-Learns feature representations from unlabeled stream data.
-
-Usage later:
-X → encoder → latent z → classifier head
+SEAI SSL Autoencoder — Trainer Compatible
 """
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from config import INPUT_DIM, DEVICE
 
 
 class SSLAutoencoder(nn.Module):
-    """
-    Tabular autoencoder for SSL representation learning.
-    """
 
     def __init__(
         self,
         input_dim: int = INPUT_DIM,
         latent_dim: int = 32,
-        hidden_dim: int = 128
+        hidden_dim: int = 128,
+        noise_std: float = 0.05
     ):
         super().__init__()
 
-        # -------------------------
-        # Encoder
-        # -------------------------
+        self.noise_std = noise_std
+
+        # -------- encoder --------
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.BatchNorm1d(hidden_dim),
 
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
@@ -40,9 +33,7 @@ class SSLAutoencoder(nn.Module):
             nn.Linear(hidden_dim // 2, latent_dim)
         )
 
-        # -------------------------
-        # Decoder
-        # -------------------------
+        # -------- decoder --------
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim // 2),
             nn.ReLU(),
@@ -56,41 +47,60 @@ class SSLAutoencoder(nn.Module):
         self.to(DEVICE)
 
     # ---------------------------------
-    # Forward
-    # ---------------------------------
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x):
+
         z = self.encoder(x)
         recon = self.decoder(z)
         return recon
 
     # ---------------------------------
-    # Encode Only (Important for later)
+    # SSL Loss (Trainer expects this)
+    # ---------------------------------
+
+    def loss(self, x):
+
+        if not torch.is_tensor(x):
+            x = torch.as_tensor(
+                x,
+                dtype=torch.float32,
+                device=DEVICE
+            )
+
+        # denoising corruption
+        noise = torch.randn_like(x) * self.noise_std
+        x_noisy = x + noise
+
+        recon = self.forward(x_noisy)
+
+        return F.mse_loss(recon, x)
+
     # ---------------------------------
 
     @torch.no_grad()
-    def encode(self, x: torch.Tensor):
+    def encode(self, x):
+
         self.eval()
+
+        if not torch.is_tensor(x):
+            x = torch.as_tensor(
+                x,
+                dtype=torch.float32,
+                device=DEVICE
+            )
+
         return self.encoder(x)
 
     # ---------------------------------
-    # Encode With Grad (for joint train)
-    # ---------------------------------
 
-    def encode_train(self, x: torch.Tensor):
+    def encode_train(self, x):
         return self.encoder(x)
 
-    # ---------------------------------
-    # Reconstruction Loss
-    # ---------------------------------
-
-    @staticmethod
-    def reconstruction_loss(x, recon):
-        return nn.functional.mse_loss(recon, x)
-
-    # ---------------------------------
-    # Info
     # ---------------------------------
 
     def num_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        return sum(
+            p.numel()
+            for p in self.parameters()
+            if p.requires_grad
+        )

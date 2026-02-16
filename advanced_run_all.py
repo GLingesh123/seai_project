@@ -1,19 +1,17 @@
 """
-SEAI Advanced Batch Runner — FIXED
+SEAI Advanced Batch Runner — CLEAN + CORRECT
 
-Runs and compares:
+Compares:
 
 - baseline
-- SSL
+- SSL encoder model
 - transformer
 - meta-init
 - EWC
+- full SEAI
 
-Fixes:
-- early drift injection
-- longer runs
-- safe EWC integration
-- guaranteed drift metrics
+Aligned with:
+drift + replay + EWC + meta warm start
 """
 
 import glob
@@ -22,7 +20,7 @@ import pandas as pd
 from data.loaders.stream_loader import StreamLoader
 from training.trainer import StreamTrainer
 from training.adaptation_loop import AdaptationLoop
-from drift.drift_detector import DriftDetector
+from drift.drift_manager import DriftManager
 from replay.buffer import ReplayBuffer
 from experiments.logger import ExperimentLogger
 
@@ -30,8 +28,10 @@ from models.baseline.mlp import BaselineMLP
 from models.ssl.autoencoder import SSLAutoencoder
 from models.ssl.ssl_trainer import SSLTrainer
 from models.ssl.ssl_classifier_wrapper import SSLClassifier
+
 from models.transformer.adaptive_transformer import AdaptiveTransformer
-from models.meta.meta_pretrain import MetaPretrainer
+from models.meta.meta_init import MetaPretrainer
+from models.meta.meta_init import MetaWarmStart
 
 from continual_learning.ewc import EWC
 
@@ -39,55 +39,44 @@ from evaluation.compare_runs import compare_csv_runs
 from visualization.plot_accuracy import compare_runs
 
 
-# -------------------------------------------------
+# =====================================================
 # Variant Runner
-# -------------------------------------------------
+# =====================================================
 
-def run_variant(name, model_builder, scenario, steps=220, use_ewc=False):
+def run_variant(
+    name,
+    model_builder,
+    scenario,
+    steps=250,
+    use_replay=True,
+    use_ewc=False,
+    use_meta=False
+):
 
     print("\n" + "=" * 60)
     print("RUN:", name)
     print("=" * 60)
 
     stream = StreamLoader(scenario=scenario)
+
     model = model_builder()
-
     trainer = StreamTrainer(model)
-    detector = DriftDetector()
-    replay = ReplayBuffer()
+
+    detector = DriftManager(min_votes=2)
+
+    replay = ReplayBuffer() if use_replay else None
+    continual = EWC(model) if use_ewc else None
+    meta = MetaWarmStart() if use_meta else None
+
     logger = ExperimentLogger(name)
-
-    # -------- safe EWC integration --------
-    if use_ewc:
-        ewc = EWC(model)
-        ewc.capture_prev_params()
-
-        def batch_fn():
-            b = stream.next_batch()
-            if b is None:
-                return None
-            X, y, _ = b
-            return X, y
-
-        ewc.estimate_fisher(batch_fn, samples=40)
-
-        orig_train = trainer.train_batch
-
-        def train_with_ewc(X, y):
-            stats = orig_train(X, y)
-            pen = ewc.penalty()
-            trainer.optimizer.zero_grad()
-            pen.backward()
-            trainer.optimizer.step()
-            return stats
-
-        trainer.train_batch = train_with_ewc
 
     loop = AdaptationLoop(
         stream_loader=stream,
         trainer=trainer,
         drift_detector=detector,
         replay_buffer=replay,
+        continual_module=continual,
+        meta_module=meta,
         logger=logger
     )
 
@@ -97,9 +86,9 @@ def run_variant(name, model_builder, scenario, steps=220, use_ewc=False):
     return files[-1]
 
 
-# -------------------------------------------------
+# =====================================================
 # Model Builders
-# -------------------------------------------------
+# =====================================================
 
 def build_baseline():
     return BaselineMLP()
@@ -110,9 +99,10 @@ def build_ssl_model():
     ae = SSLAutoencoder()
     ssl_trainer = SSLTrainer(ae)
 
+    print("[SSL] pretraining encoder...")
     ssl_trainer.pretrain_stream(
         StreamLoader({"type": "none"}),
-        steps=100
+        steps=120
     )
 
     return SSLClassifier(ae.encoder, freeze_encoder=True)
@@ -124,58 +114,83 @@ def build_transformer():
 
 def build_meta_model():
 
-    model = BaselineMLP()
-    meta = MetaPretrainer(model, steps_per_scenario=25)
+    base = BaselineMLP()
+
+    print("[META] pretraining...")
+    meta = MetaPretrainer(base, steps_per_scenario=30)
     meta.run()
+
     return meta.get_model()
 
 
-# -------------------------------------------------
-# Main Batch — EARLY DRIFT FIX
-# -------------------------------------------------
+# =====================================================
+# Main Batch Run
+# =====================================================
 
 if __name__ == "__main__":
 
-    # 🔥 EARLY drift so detector always sees it
-    scenario = {"type": "gradual", "start": 10, "end": 40}
+    # early drift so detectors always trigger
+    scenario = {"type": "gradual", "start": 15, "end": 60}
 
     csv_map = {}
 
-    csv_map["adv_baseline"] = run_variant(
-        "adv_baseline",
+    # ---------------- baseline ----------------
+    csv_map["baseline"] = run_variant(
+        "baseline",
         build_baseline,
-        scenario
+        scenario,
+        use_replay=False
     )
 
-    csv_map["adv_ssl"] = run_variant(
-        "adv_ssl",
+    # ---------------- SSL ----------------
+    csv_map["ssl"] = run_variant(
+        "ssl",
         build_ssl_model,
         scenario
     )
 
-    csv_map["adv_transformer"] = run_variant(
-        "adv_transformer",
+    # ---------------- transformer ----------------
+    csv_map["transformer"] = run_variant(
+        "transformer",
         build_transformer,
         scenario
     )
 
-    csv_map["adv_meta"] = run_variant(
-        "adv_meta",
+    # ---------------- meta init ----------------
+    csv_map["meta_init"] = run_variant(
+        "meta_init",
         build_meta_model,
         scenario
     )
 
-    csv_map["adv_ewc"] = run_variant(
-        "adv_ewc",
+    # ---------------- EWC only ----------------
+    csv_map["ewc"] = run_variant(
+        "ewc",
         build_baseline,
         scenario,
         use_ewc=True
     )
 
-    # -------- comparison table --------
+    # ---------------- FULL SEAI ----------------
+    csv_map["seai"] = run_variant(
+        "seai",
+        build_baseline,
+        scenario,
+        use_replay=True,
+        use_ewc=True,
+        use_meta=True
+    )
+
+    # =====================================================
+    # Comparison Table
+    # =====================================================
+
     compare_csv_runs(csv_map, "advanced_comparison")
 
-    # -------- comparison plot --------
+    # =====================================================
+    # Comparison Plot
+    # =====================================================
+
     compare_runs(
         list(csv_map.values()),
         labels=list(csv_map.keys()),
@@ -183,4 +198,4 @@ if __name__ == "__main__":
         save_name="advanced_comparison_plot"
     )
 
-    print("\n✅ Advanced comparison complete (with drift).")
+    print("\n✅ Advanced SEAI comparison complete.")

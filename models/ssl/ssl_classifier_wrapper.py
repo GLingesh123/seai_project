@@ -1,9 +1,5 @@
 """
-SSL Encoder + Classifier Wrapper
-
-Wraps a pretrained SSL encoder with a classification head.
-
-Drop-in replacement for BaselineMLP in StreamTrainer.
+SEAI SSL Encoder + Classifier Wrapper — Final
 """
 
 import torch
@@ -13,9 +9,6 @@ from config import DEVICE, NUM_CLASSES
 
 
 class SSLClassifier(nn.Module):
-    """
-    encoder → classifier head
-    """
 
     def __init__(
         self,
@@ -28,39 +21,56 @@ class SSLClassifier(nn.Module):
         super().__init__()
 
         self.encoder = encoder
+        self._encoder_frozen = freeze_encoder
 
         if freeze_encoder:
-            for p in self.encoder.parameters():
-                p.requires_grad = False
+            self.freeze_encoder()
+            self.encoder.eval()
 
+        # ---- classifier head ----
         self.head = nn.Sequential(
             nn.Linear(latent_dim, hidden_dim),
             nn.ReLU(),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),   # ✅ stream-safe
             nn.Dropout(0.2),
-
             nn.Linear(hidden_dim, num_classes)
         )
 
         self.to(DEVICE)
 
     # ---------------------------------
-    # Forward
-    # ---------------------------------
 
     def forward(self, x: torch.Tensor):
 
-        # encoder may be from autoencoder model
-        if hasattr(self.encoder, "encode_train"):
-            z = self.encoder.encode_train(x)
+        if self._encoder_frozen:
+            with torch.no_grad():
+                z = self._encode(x)
         else:
-            z = self.encoder(x)
+            z = self._encode(x)
 
         logits = self.head(z)
         return logits
 
     # ---------------------------------
-    # Prediction Helpers
+
+    def _encode(self, x):
+
+        if hasattr(self.encoder, "encode_train"):
+            return self.encoder.encode_train(x)
+        elif hasattr(self.encoder, "encode"):
+            return self.encoder.encode(x)
+        else:
+            return self.encoder(x)
+
+    # ---------------------------------
+    # Feature extraction (SEAI required)
+    # ---------------------------------
+
+    def extract_features(self, x: torch.Tensor):
+        return self._encode(x)
+
+    # ---------------------------------
+    # Prediction helpers
     # ---------------------------------
 
     @torch.no_grad()
@@ -75,20 +85,26 @@ class SSLClassifier(nn.Module):
         return torch.argmax(logits, dim=1)
 
     # ---------------------------------
-    # Control
+    # Encoder control
     # ---------------------------------
 
     def unfreeze_encoder(self):
         for p in self.encoder.parameters():
             p.requires_grad = True
+        self._encoder_frozen = False
+        self.encoder.train()
 
     def freeze_encoder(self):
         for p in self.encoder.parameters():
             p.requires_grad = False
+        self._encoder_frozen = True
+        self.encoder.eval()
 
-    # ---------------------------------
-    # Info
     # ---------------------------------
 
     def num_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+        return sum(
+            p.numel()
+            for p in self.parameters()
+            if p.requires_grad
+        )
