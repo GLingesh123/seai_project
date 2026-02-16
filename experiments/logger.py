@@ -30,7 +30,7 @@ class ExperimentLogger:
         self.experiment_name = experiment_name
         self.start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        self.run_id = f"{experiment_name}_{self.start_time}"
+        self.run_id = f"{experiment_name}"
 
         self.metrics: List[Dict] = []
         self.drift_events: List[Dict] = []

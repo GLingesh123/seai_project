@@ -27,3 +27,8 @@ STEPS
 3 - Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 4 - .\bootstrap.ps1
+
+UI
+
+run this -->  streamlit run ui/streamlit_app.py
+
