@@ -1,5 +1,5 @@
 """
-SEAI vs Baseline — Drift Handling Graph
+SEAI vs Static Baseline — Drift Handling Graph
 ONE COMMAND → RUN BOTH → SAVE FIXED FILES → DRAW GRAPH
 """
 
@@ -30,36 +30,109 @@ SCENARIO = {
     "end": 120
 }
 
-BASELINE_NAME = "baseline_drift"
-SEAI_NAME = "seai_drift"
+BASELINE_NAME = "baseline_drift_static"
+SEAI_NAME = "seai_drift_adaptive"
 
 
 # =====================================================
-# PIPELINE RUNNER
+# TRUE STATIC BASELINE (NO ADAPTATION AFTER DRIFT)
 # =====================================================
 
-def run_pipeline(name, use_seai=False):
+def run_static_baseline():
 
-    print(f"\n=== RUN {name} ===")
+    print("\n=== RUN STATIC BASELINE ===")
+
+    rows = []
+
+    drift_step = SCENARIO["start"]
+
+    # -------- train stream --------
+    train_stream = StreamLoader(scenario=SCENARIO, seed=42)
+
+    model = BaselineMLP()
+    trainer = StreamTrainer(model)
+
+    # ---- train ONLY before drift ----
+    for step in range(drift_step):
+
+        batch = train_stream.next_batch()
+        if batch is None:
+            break
+
+        X, y, _ = batch
+        stats = trainer.train_batch(X, y)
+
+        rows.append({
+            "step": step,
+            "accuracy": stats["accuracy"],
+            "loss": stats["loss"],
+            "mode": "train_pre_drift"
+        })
+
+    # -------- post-drift evaluation stream --------
+    eval_stream = StreamLoader(scenario=SCENARIO, seed=9999)
+
+    # skip pre-drift region
+    for _ in range(drift_step):
+        eval_stream.next_batch()
+
+    step = drift_step
+
+    while step < STEPS:
+
+        batch = eval_stream.next_batch()
+        if batch is None:
+            break
+
+        X, y, _ = batch
+        acc = trainer.eval_batch(X, y)
+
+        rows.append({
+            "step": step,
+            "accuracy": acc,
+            "loss": None,
+            "mode": "eval_post_drift"
+        })
+
+        step += 1
+
+    # -------- save fixed files --------
+
+    os.makedirs("results/csv", exist_ok=True)
+    os.makedirs("results/json", exist_ok=True)
+
+    csv_path = f"results/csv/{BASELINE_NAME}.csv"
+    json_path = f"results/json/{BASELINE_NAME}.json"
+
+    df = pd.DataFrame(rows)
+    df.to_csv(csv_path, index=False)
+    df.to_json(json_path, orient="records")
+
+    print("Saved CSV:", csv_path)
+    print("Saved JSON:", json_path)
+
+    return csv_path
+
+
+# =====================================================
+# SEAI ADAPTIVE PIPELINE
+# =====================================================
+
+def run_seai_pipeline():
+
+    print("\n=== RUN SEAI ADAPTIVE ===")
 
     stream = StreamLoader(scenario=SCENARIO)
 
     model = BaselineMLP()
     trainer = StreamTrainer(model)
 
-    # make baseline detector weaker, SEAI stronger
-    detector = DriftManager(
-        min_votes=2 if use_seai else 1
-    )
+    detector = DriftManager(min_votes=2)
 
-    replay = None
-    continual = None
+    replay = ReplayBuffer()
+    continual = EWC(trainer.model)
 
-    if use_seai:
-        replay = ReplayBuffer()
-        continual = EWC(trainer.model)
-
-    logger = ExperimentLogger(name)
+    logger = ExperimentLogger(SEAI_NAME)
 
     loop = AdaptationLoop(
         stream_loader=stream,
@@ -72,30 +145,22 @@ def run_pipeline(name, use_seai=False):
 
     loop.run(max_steps=STEPS)
 
-    # ----------------------------------------
-    # normalize filenames to fixed names
-    # ----------------------------------------
+    # ---- copy to fixed names ----
 
     src_csv = f"results/csv/{logger.run_id}.csv"
     src_json = f"results/json/{logger.run_id}.json"
 
-    dst_csv = f"results/csv/{name}.csv"
-    dst_json = f"results/json/{name}.json"
+    dst_csv = f"results/csv/{SEAI_NAME}.csv"
+    dst_json = f"results/json/{SEAI_NAME}.json"
 
-    os.makedirs("results/csv", exist_ok=True)
-    os.makedirs("results/json", exist_ok=True)
+    if os.path.exists(src_csv) and os.path.abspath(src_csv) != os.path.abspath(dst_csv):
+        shutil.copyfile(src_csv, dst_csv)
 
-    if os.path.exists(src_csv):
-        if os.path.abspath(src_csv) != os.path.abspath(dst_csv):
-            shutil.copyfile(src_csv, dst_csv)
-            print("Saved CSV:", dst_csv)
-        
+    if os.path.exists(src_json) and os.path.abspath(src_json) != os.path.abspath(dst_json):
+        shutil.copyfile(src_json, dst_json)
 
-    if os.path.exists(src_json):
-        if os.path.abspath(src_json) != os.path.abspath(dst_json):
-            shutil.copyfile(src_json, dst_json)
-            print("Saved JSON:", dst_json)
-    
+    print("Saved CSV:", dst_csv)
+    print("Saved JSON:", dst_json)
 
     return dst_csv
 
@@ -114,18 +179,17 @@ def plot_compare(csv_base, csv_seai):
     plt.plot(
         df_b["step"],
         df_b["accuracy"],
-        label="Baseline (Static Model)",
+        label="Static Baseline (Frozen After Drift)",
         linewidth=2
     )
 
     plt.plot(
         df_s["step"],
         df_s["accuracy"],
-        label="SEAI (Replay + EWC Adaptation)",
+        label="SEAI Adaptive (Replay + EWC)",
         linewidth=2
     )
 
-    # drift zone highlight
     plt.axvspan(
         SCENARIO["start"],
         SCENARIO["end"],
@@ -133,9 +197,9 @@ def plot_compare(csv_base, csv_seai):
         label="Drift Window"
     )
 
-    plt.title("Concept Drift Handling — SEAI vs Static Baseline")
+    plt.title("Concept Drift Handling — Static vs SEAI Adaptive")
     plt.xlabel("Stream Step")
-    plt.ylabel("Prediction Accuracy")
+    plt.ylabel("Accuracy")
     plt.legend()
     plt.grid(True)
 
@@ -154,8 +218,8 @@ def plot_compare(csv_base, csv_seai):
 
 if __name__ == "__main__":
 
-    base_csv = run_pipeline(BASELINE_NAME, use_seai=False)
-    seai_csv = run_pipeline(SEAI_NAME, use_seai=True)
+    base_csv = run_static_baseline()
+    seai_csv = run_seai_pipeline()
 
     plot_compare(base_csv, seai_csv)
 

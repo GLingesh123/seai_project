@@ -1,24 +1,8 @@
-"""
-Synthetic Streaming Data Generator for SEAI
-
-Features:
-- chunked streaming batches
-- reproducible random seed
-- binary classification labels
-- sudden / gradual / recurring drift
-- feature distribution shift
-- class boundary shift
-- noise injection
-"""
-
 import numpy as np
 from typing import Tuple, Optional
 
 
 class SyntheticStream:
-    """
-    Streaming synthetic dataset with controllable concept drift.
-    """
 
     def __init__(
         self,
@@ -34,55 +18,53 @@ class SyntheticStream:
 
         self.rng = np.random.default_rng(seed)
 
-        # base distribution params
+        # base distribution
         self.base_mean = 0.0
         self.base_std = 1.0
 
-        # drift state
+        # -------- TRUE CONCEPT DRIFT SETUP (SOFTENED) --------
+        self.w_base = self.rng.normal(size=input_dim)
+
+        # 🔧 reduced drift strength
+        self.w_drift = self.rng.normal(size=input_dim) * 1.8
+
+        self.current_w = self.w_base.copy()
+
+        # covariate drift params (softened)
         self.drift_offset = 0.0
-        self.boundary_shift = 0.0
         self.noise_level = 0.0
 
     # -------------------------
     # Drift Controls
     # -------------------------
 
-    def set_sudden_drift(
-        self,
-        feature_shift: float = 4.0,
-        boundary_shift: float = 3.0,
-        noise: float = 0.6
-    ):
-        """Apply sudden distribution change"""
-        self.drift_offset = feature_shift
-        self.boundary_shift = boundary_shift
-        self.noise_level = noise
+    def set_sudden_drift(self):
+        # 🔧 softer sudden drift
+        self.current_w = self.w_drift
+        self.drift_offset = 1.2
+        self.noise_level = 0.25
 
-    def set_gradual_drift(
-        self,
-        progress: float,
-        max_feature_shift: float = 2.0,
-        max_boundary_shift: float = 1.5,
-        max_noise: float = 0.3
-    ):
-        """
-        Gradually increase drift based on progress (0 → 1)
-        """
-        self.drift_offset = max_feature_shift * progress
-        self.boundary_shift = max_boundary_shift * progress
-        self.noise_level = max_noise * progress
+    def set_gradual_drift(self, progress: float):
+        self.current_w = (
+            (1 - progress) * self.w_base +
+            progress * self.w_drift
+        )
+
+        # 🔧 softer gradual drift
+        self.drift_offset = 1.0 * progress
+        self.noise_level = 0.2 * progress
 
     def reset_drift(self):
-        """Return to original distribution"""
+        self.current_w = self.w_base.copy()
         self.drift_offset = 0.0
-        self.boundary_shift = 0.0
         self.noise_level = 0.0
 
     # -------------------------
-    # Core Generation
+    # Feature Generation
     # -------------------------
 
     def _generate_features(self) -> np.ndarray:
+
         X = self.rng.normal(
             loc=self.base_mean + self.drift_offset,
             scale=self.base_std,
@@ -90,22 +72,26 @@ class SyntheticStream:
         )
 
         if self.noise_level > 0:
-            noise = self.rng.normal(
+            X += self.rng.normal(
                 0,
                 self.noise_level,
                 size=X.shape
             )
-            X = X + noise
 
         return X
 
+    # -------------------------
+    # TRUE Concept Labels
+    # -------------------------
+
     def _generate_labels(self, X: np.ndarray) -> np.ndarray:
-        """
-        Linear boundary classifier with shiftable threshold
-        """
-        scores = X.sum(axis=1)
-        y = (scores > self.boundary_shift).astype(int)
-        return y
+
+        scores = X @ self.current_w
+
+        # 🔧 reduced label noise
+        scores += self.rng.normal(0, 0.25, size=len(scores))
+
+        return (scores > 0).astype(int)
 
     # -------------------------
     # Public API
@@ -120,8 +106,6 @@ class SyntheticStream:
         if self.generated >= self.total_samples:
             return None
 
-        # -------- APPLY DRIFT --------
-
         if drift_mode == "sudden":
             self.set_sudden_drift()
 
@@ -131,32 +115,17 @@ class SyntheticStream:
         elif drift_mode == "reset":
             self.reset_drift()
 
-        # -------- DEBUG AFTER APPLY --------
-        # if drift_mode:
-        #     print(
-        #         f"🔥 DRIFT APPLIED mode={drift_mode} "
-        #         f"offset={self.drift_offset:.2f} "
-        #         f"boundary={self.boundary_shift:.2f} "
-        #         f"noise={self.noise_level:.2f}"
-        #     )
-
-        # -------- GENERATE --------
-
         X = self._generate_features()
         y = self._generate_labels(X)
 
         self.generated += self.chunk_size
         return X, y
 
-
-    # -------------------------
-    # Diagnostics
     # -------------------------
 
-    def current_state(self) -> dict:
+    def current_state(self):
         return {
             "generated": self.generated,
-            "drift_offset": self.drift_offset,
-            "boundary_shift": self.boundary_shift,
-            "noise_level": self.noise_level
+            "noise": self.noise_level,
+            "offset": self.drift_offset
         }
