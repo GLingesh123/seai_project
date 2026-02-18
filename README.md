@@ -28,6 +28,8 @@ STEPS
 
 4 - .\bootstrap.ps1
 
+5- "To activate the Venv:" .venv\Scripts\Activate
+
 UI
 
 run this -->  streamlit run ui/streamlit_app.py
