@@ -332,113 +332,98 @@ def plot_drift_window(plt_mod, scenario: dict):
         for step in steps:
             plt_mod.axvline(x=step, color='red', linestyle='--', alpha=0.5, label='True Drift' if step == steps[0] else "")
 
-def plot_individual_metrics(df: pd.DataFrame, model_name: str, folder: str, organizer: ResultOrganizer, scenario: dict = None):
-    """Plot accuracy and loss for a single model"""
-    # Accuracy
-    fig_acc = plt.figure(figsize=(8, 5))
-    plt.plot(df['step'], df['accuracy'], label=f"{model_name} Accuracy", color='blue')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.title(f"{model_name} Accuracy over Time")
-    if scenario:
-        plot_drift_window(plt, scenario)
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    organizer.save_plot(folder, 'accuracy.jpg', fig_acc)
-    plt.close(fig_acc)
-    
-    # Loss
-    if 'loss' in df.columns and not df['loss'].isnull().all():
-        fig_loss = plt.figure(figsize=(8, 5))
-        plt.plot(df['step'], df['loss'], label=f"{model_name} Loss", color='red')
-        plt.xlabel('Step')
-        plt.ylabel('Loss')
-        plt.title(f"{model_name} Loss over Time")
-        if scenario:
-            plot_drift_window(plt, scenario)
-        plt.grid(True, alpha=0.3)
-        plt.legend()
-        organizer.save_plot(folder, 'loss.jpg', fig_loss)
-        plt.close(fig_loss)
-
-
-def plot_custom_metrics(baseline_df: pd.DataFrame, seai_df: pd.DataFrame, scenario: dict, organizer: ResultOrganizer):
-    """Plot the 5 advanced structural evaluation matrices for Continual Learning Diagnostics"""
+def plot_comparison_metrics(baseline_df: pd.DataFrame, seai_df: pd.DataFrame, scenario: dict, organizer: ResultOrganizer):
+    """Plot enterprise-grade, highly stylized accuracy and loss comparison graphs."""
     plt.style.use('dark_background')
     
-    # 1. Knowledge Retention Heatmap
+    # Apply rolling smoothing for professional aesthetics
+    smooth_w = max(1, len(baseline_df) // 20)
+    b_acc_s = baseline_df['accuracy'].rolling(window=smooth_w, min_periods=1).mean()
+    s_acc_s = seai_df['accuracy'].rolling(window=smooth_w, min_periods=1).mean()
+    b_loss_s = baseline_df['loss'].rolling(window=smooth_w, min_periods=1).mean()
+    s_loss_s = seai_df['loss'].rolling(window=smooth_w, min_periods=1).mean()
+    
+    def add_drift_markers(ax):
+        if scenario and scenario.get("type") in ["sudden", "recurring"]:
+            for d_step in scenario.get("steps", []):
+                if d_step < len(baseline_df):
+                    ax.axvline(x=d_step, color='#f1c40f', linestyle=':', alpha=0.8, linewidth=2)
+                    ax.text(d_step + int(len(baseline_df)*0.02), ax.get_ylim()[0] + (ax.get_ylim()[1]-ax.get_ylim()[0])*0.05, 'DRIFT INITIATED', color='#f1c40f', fontsize=9, fontweight='bold', rotation=90)
+        elif scenario and scenario.get("type") == "gradual":
+            start_d = scenario.get("start", 0)
+            end_d = scenario.get("end", 0)
+            if start_d < len(baseline_df):
+                ax.axvspan(start_d, min(end_d, len(baseline_df)), color='#f1c40f', alpha=0.1)
+                ax.text(start_d + int(len(baseline_df)*0.02), ax.get_ylim()[0] + (ax.get_ylim()[1]-ax.get_ylim()[0])*0.05, 'GRADUAL DRIFT', color='#f1c40f', fontsize=9, fontweight='bold', rotation=90)
+
+    def style_axis(ax, title, ylabel):
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#333333')
+        ax.spines['bottom'].set_color('#333333')
+        ax.grid(axis='y', color='#333333', linestyle='--', alpha=0.7)
+        ax.set_xlabel('Execution Trace (Steps)', fontsize=11, color='#aaaaaa', fontweight='bold')
+        ax.set_ylabel(ylabel, fontsize=11, color='#aaaaaa', fontweight='bold')
+        ax.set_title(title, fontsize=15, pad=20, color='white', fontweight='900')
+        ax.tick_params(colors='#aaaaaa')
+        ax.legend(frameon=True, facecolor='#111111', edgecolor='#333333', fontsize=10)
+
+    # 1. Smoothed Accuracy Trajectory
     fig1, ax1 = plt.subplots(figsize=(10, 6))
-    window_size = max(1, len(baseline_df) // 5)
-    base_acc_windows = [baseline_df['accuracy'].iloc[i:i+window_size].mean() for i in range(0, len(baseline_df), window_size)][:5]
-    seai_acc_windows = [seai_df['accuracy'].iloc[i:i+window_size].mean() for i in range(0, len(seai_df), window_size)][:5]
-    
-    import numpy as np
-    data = np.array([base_acc_windows, seai_acc_windows])
-    cax = ax1.imshow(data, cmap='RdYlGn', aspect='auto', vmin=0.3, vmax=1.0)
-    ax1.set_yticks([0, 1]); ax1.set_yticklabels(['Baseline', 'SEAI'], fontsize=12)
-    ax1.set_xticks(range(len(base_acc_windows))); ax1.set_xticklabels([f"W{i+1}" for i in range(len(base_acc_windows))], fontsize=10)
-    ax1.set_title('Knowledge Retention Temporal Heatmap', fontsize=14)
-    for i in range(2):
-        for j in range(len(base_acc_windows)):
-            ax1.text(j, i, f"{data[i, j]:.2f}", ha="center", va="center", color="black" if data[i, j] > 0.6 else "white")
-    plt.colorbar(cax, ax=ax1, label='Accuracy')
-    organizer.save_plot('comparisons', 'retention_heatmap.jpg', fig1); plt.close(fig1)
+    ax1.plot(baseline_df['step'], b_acc_s, label='Baseline Matrix (Rigid)', color='#ff4b4b', linewidth=2.5)
+    ax1.plot(seai_df['step'], s_acc_s, label='SEAI Engine (Adaptive)', color='#00f2fe', linewidth=2.5)
+    ax1.fill_between(baseline_df['step'], 0, b_acc_s, color='#ff4b4b', alpha=0.05)
+    ax1.fill_between(seai_df['step'], 0, s_acc_s, color='#00f2fe', alpha=0.1)
+    style_axis(ax1, 'Performance Trajectory over Continuous Time', 'Smoothed Accuracy Ratio')
+    add_drift_markers(ax1)
+    organizer.save_plot('comparisons', 'accuracy_comparison.jpg', fig1); plt.close(fig1)
 
-    # 2. Drift Recovery Zoomed Trajectory
-    fig2 = plt.figure(figsize=(10, 6))
-    drift_step = scenario.get("steps", [len(baseline_df)//2])[0] if scenario and scenario.get("type") in ["sudden", "recurring"] else (scenario.get("start", len(baseline_df)//2) if scenario and scenario.get("type") == "gradual" else len(baseline_df)//2)
-    start_idx = max(0, drift_step - 20)
-    end_idx = min(len(baseline_df) - 1, drift_step + 40)
-    
-    plt.plot(baseline_df['step'][start_idx:end_idx], baseline_df['accuracy'][start_idx:end_idx], label='Baseline Collapse', color='#e74c3c', linewidth=2)
-    plt.plot(seai_df['step'][start_idx:end_idx], seai_df['accuracy'][start_idx:end_idx], label='SEAI Recovery', color='#2ecc71', linewidth=2)
-    plt.fill_between(seai_df['step'][start_idx:end_idx], baseline_df['accuracy'][start_idx:end_idx], seai_df['accuracy'][start_idx:end_idx], where=(seai_df['accuracy'][start_idx:end_idx] > baseline_df['accuracy'][start_idx:end_idx]), color='#2ecc71', alpha=0.2)
-    plt.axvline(x=drift_step, color='white', linestyle='--', alpha=0.8, label='Concept Drift Initiated')
-    plt.xlabel('Step Fragment', fontsize=12); plt.ylabel('Accuracy', fontsize=12)
-    plt.title('Drift Recovery Trajectory (Zoomed Spike)', fontsize=14)
-    plt.grid(True, alpha=0.2); plt.legend()
-    organizer.save_plot('comparisons', 'drift_recovery.jpg', fig2); plt.close(fig2)
+    # 2. Smoothed Loss Dynamics
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    ax2.plot(baseline_df['step'], b_loss_s, label='Baseline Error Function', color='#ff4b4b', linewidth=2.5)
+    ax2.plot(seai_df['step'], s_loss_s, label='SEAI Error Function', color='#00f2fe', linewidth=2.5)
+    ax2.fill_between(baseline_df['step'], 0, b_loss_s, color='#ff4b4b', alpha=0.05)
+    ax2.fill_between(seai_df['step'], 0, s_loss_s, color='#00f2fe', alpha=0.1)
+    style_axis(ax2, 'Mathematical Loss Decay Optimization', 'Smoothed Cross-Entropy Loss')
+    add_drift_markers(ax2)
+    organizer.save_plot('comparisons', 'loss_comparison.jpg', fig2); plt.close(fig2)
 
-    # 3. Cumulative Forgetting Bar Constraints
-    fig3 = plt.figure(figsize=(10, 6))
-    f_base = max(0, baseline_df['accuracy'].max() - baseline_df['accuracy'].iloc[-1])
-    f_seai = max(0, seai_df['accuracy'].max() - seai_df['accuracy'].iloc[-1])
-    
-    bars = plt.barh(['Baseline Forgetting', 'SEAI Forgetting'], [f_base*100, f_seai*100], color=['#e74c3c', '#2ecc71'])
-    plt.xlabel('Cumulative Accuracy Degradation (%)', fontsize=12)
-    plt.title('Catastrophic Forgetting Absolute Comparison', fontsize=14)
-    for bar in bars:
-        width = bar.get_width()
-        plt.text(width + 1, bar.get_y() + bar.get_height()/2, f"{width:.1f}%", ha='left', va='center', fontsize=12, fontweight='bold', color='white')
-    plt.xlim(0, max(f_base*100, f_seai*100) + 15)
-    organizer.save_plot('comparisons', 'forgetting_bars.jpg', fig3); plt.close(fig3)
+    # 3. Structural Accuracy Advantage Tracker
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    adv = s_acc_s - b_acc_s
+    ax3.plot(baseline_df['step'], adv, label='SEAI Cumulative Advantage', color='#2ecc71', linewidth=2)
+    ax3.fill_between(baseline_df['step'], 0, adv, where=(adv >= 0), color='#2ecc71', alpha=0.2, label='SEAI Positive Delta')
+    ax3.fill_between(baseline_df['step'], 0, adv, where=(adv < 0), color='#ff4b4b', alpha=0.2, label='Baseline Positive Delta')
+    style_axis(ax3, 'Net Architectural Edge (Accuracy Delta)', 'SEAI % Advantage')
+    add_drift_markers(ax3)
+    organizer.save_plot('comparisons', 'accuracy_advantage.jpg', fig3); plt.close(fig3)
 
-    # 4. The Pareto Frontier (Resource vs Accuracy)
-    fig4 = plt.figure(figsize=(10, 6))
-    plt.scatter(baseline_df['memory_kb'], baseline_df['accuracy'], color='#e74c3c', alpha=0.5, label='Baseline Cluster')
-    plt.scatter(seai_df['memory_kb'], seai_df['accuracy'], color='#2ecc71', alpha=0.5, label='SEAI Cluster')
-    plt.scatter([baseline_df['memory_kb'].iloc[-1]], [baseline_df['accuracy'].iloc[-1]], color='red', marker='*', s=200, label='Baseline Final State', edgecolors='white')
-    plt.scatter([seai_df['memory_kb'].iloc[-1]], [seai_df['accuracy'].iloc[-1]], color='lime', marker='*', s=200, label='SEAI Final State', edgecolors='white')
-    plt.xlabel('Computational Overhead - Active RAM (KB)', fontsize=12)
-    plt.ylabel('Architectural Accuracy', fontsize=12)
-    plt.title('The Pareto Frontier: Efficiency vs. Retention', fontsize=14)
-    plt.grid(True, alpha=0.2); plt.legend(loc='lower right')
-    organizer.save_plot('comparisons', 'pareto_frontier.jpg', fig4); plt.close(fig4)
+    # 4. Latency Resource Spike Tracker
+    fig4, ax4 = plt.subplots(figsize=(10, 6))
+    b_time = baseline_df['time_ms'].rolling(window=smooth_w, min_periods=1).mean() if smooth_w > 1 else baseline_df['time_ms']
+    s_time = seai_df['time_ms'].rolling(window=smooth_w, min_periods=1).mean() if smooth_w > 1 else seai_df['time_ms']
+    ax4.plot(baseline_df['step'], b_time, label='Baseline Compute Overhead', color='#ff4b4b', linewidth=2)
+    ax4.plot(seai_df['step'], s_time, label='SEAI Compute Overhead', color='#00f2fe', linewidth=2)
+    ax4.fill_between(seai_df['step'], 0, s_time, color='#00f2fe', alpha=0.1)
+    style_axis(ax4, 'On-Demand Processor Activation (Latency)', 'Compute Cycles (ms)')
+    add_drift_markers(ax4)
+    organizer.save_plot('comparisons', 'latency_comparison.jpg', fig4); plt.close(fig4)
 
-    # 5. Fisher Importance Density Proxy
-    fig5 = plt.figure(figsize=(10, 6))
-    base_dist = np.random.normal(0, 0.1, 1000)
-    seai_dist = np.concatenate([np.random.normal(0, 0.05, 800), np.random.normal(1.5, 0.4, 200)])
+    # 5. Dynamic Catastrophic Forgetting Tracker
+    fig5, ax5 = plt.subplots(figsize=(10, 6))
     
-    plt.hist(base_dist, bins=40, density=True, alpha=0.6, color='#e74c3c', label='Baseline Weight Mutability (Unprotected)')
-    plt.hist(seai_dist, bins=40, density=True, alpha=0.6, color='#2ecc71', label='SEAI Protected Fisher Parameters')
-    plt.xlabel('Gradient Sensitivity / Elastic Weight Penalty Mapping', fontsize=12)
-    plt.ylabel('Parameter Density', fontsize=12)
-    plt.title('Fisher Information Density Matrix', fontsize=14)
-    plt.grid(True, alpha=0.2); plt.legend()
-    organizer.save_plot('comparisons', 'fisher_density.jpg', fig5); plt.close(fig5)
+    b_forget = (baseline_df['accuracy'].cummax() - baseline_df['accuracy']).rolling(window=smooth_w, min_periods=1).mean()
+    s_forget = (seai_df['accuracy'].cummax() - seai_df['accuracy']).rolling(window=smooth_w, min_periods=1).mean()
     
-    # Restore default style natively to avoid infecting seaborn downstream if evaluated
+    ax5.plot(baseline_df['step'], b_forget, label='Baseline Forgetting Magnitude', color='#ff4b4b', linewidth=2.5)
+    ax5.plot(seai_df['step'], s_forget, label='SEAI Forgetting Magnitude', color='#00f2fe', linewidth=2.5)
+    ax5.fill_between(baseline_df['step'], 0, b_forget, color='#ff4b4b', alpha=0.1)
+    ax5.fill_between(seai_df['step'], 0, s_forget, color='#00f2fe', alpha=0.15)
+    
+    style_axis(ax5, 'Catastrophic Forgetting Vector (Closer to 0 = Complete Retention)', 'Accuracy Degradation Gap')
+    add_drift_markers(ax5)
+    organizer.save_plot('comparisons', 'forgetting_comparison.jpg', fig5); plt.close(fig5)
+    
     plt.style.use('default')
 
 
@@ -484,7 +469,7 @@ def main(args):
     acc_comp = generate_accuracy_comparison(baseline_df, seai_df)
     loss_comp = generate_loss_comparison(baseline_df, seai_df)
     
-    plot_custom_metrics(baseline_df, seai_df, scenario, organizer)
+    plot_comparison_metrics(baseline_df, seai_df, scenario, organizer)
     report = generate_improvement_report(baseline_df, seai_df, scenario)
     
     pred_steps = seai_df[seai_df['drift'] == True]['step'].tolist() if 'drift' in seai_df.columns else []

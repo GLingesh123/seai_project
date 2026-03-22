@@ -253,19 +253,21 @@ with tab_dash:
             st.markdown("---")
             
             st.subheader("Targeted Hardware Architecture Analytics")
-            st.markdown("Comparison between rigid Baseline limits and SEAI Memory/Compute bounds.")
-            
-            g1, g2 = st.columns(2)
+            st.markdown("Direct evaluation between rigid Baseline bounds and the SEAI continuous adaptation engine.")
             
             try:
-                with g1:
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/retention_heatmap.jpg"), use_container_width=True)
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/forgetting_bars.jpg"), use_container_width=True)
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/fisher_density.jpg"), use_container_width=True)
+                st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/accuracy_comparison.jpg"), use_container_width=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/accuracy_advantage.jpg"), use_container_width=True)
                 
-                with g2:
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/drift_recovery.jpg"), use_container_width=True)
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/pareto_frontier.jpg"), use_container_width=True)
+                gc1, gc2 = st.columns(2)
+                with gc1:
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/loss_comparison.jpg"), use_container_width=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/latency_comparison.jpg"), use_container_width=True)
+                with gc2:
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/forgetting_comparison.jpg"), use_container_width=True)
+                    
             except Exception as e:
                 st.error(f"Waiting for telemetry render streams... ({e})")
     else:
