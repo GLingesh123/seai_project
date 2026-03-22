@@ -57,6 +57,7 @@ class AdaptationLoop:
 
     def run(self, max_steps: Optional[int] = None):
 
+        import time
         while True:
 
             batch = self.stream.next_batch()
@@ -65,7 +66,22 @@ class AdaptationLoop:
 
             X, y, info = batch
 
+            start_t = time.time()
             stats = self.trainer.train_batch(X, y)
+            t_ms = (time.time() - start_t) * 1000
+            
+            # calculate memory footprints
+            mem_params = self.trainer.model.num_parameters() * 4 / 1024
+            mem_ewc = mem_params if hasattr(self.continual, "prev_params") else 0
+            if hasattr(self.continual, "fisher") and len(self.continual.fisher) > 0:
+                mem_ewc += mem_params
+            
+            mem_replay = 0
+            if self.replay is not None and hasattr(self.replay, "X_buf"):
+                mem_replay = sum(x.nbytes for x in self.replay.X_buf) / 1024
+                
+            stats["time_ms"] = t_ms
+            stats["memory_kb"] = mem_params + mem_ewc + mem_replay
 
             acc = stats["accuracy"]
             loss = stats["loss"]
@@ -88,7 +104,7 @@ class AdaptationLoop:
             drift_flag = drift_out["drift"]
 
             # ---------- replay store ----------
-            if self.replay:
+            if self.replay is not None:
                 try:
                     self.replay.add_batch(
                         X, y,
@@ -106,7 +122,8 @@ class AdaptationLoop:
                     step=self.total_steps,
                     loss=loss,
                     accuracy=acc,
-                    drift=drift_flag
+                    drift=drift_flag,
+                    extra={"time_ms": stats["time_ms"], "memory_kb": stats["memory_kb"]}
                 )
 
             # ---------- drift reaction ----------

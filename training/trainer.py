@@ -68,19 +68,18 @@ class StreamTrainer:
 
         # ----- continual regularizers -----
         reg_loss = torch.tensor(0.0, device=DEVICE)
-        if reg_loss.item() > 0:
-            print("EWC penalty:", reg_loss.item())
 
-        for reg in self.regularizers:
-            val = reg(self.model)
-            if not torch.is_tensor(val):
-                val = torch.tensor(val, device=DEVICE)
-            reg_loss = reg_loss + val
+        if self.adaptation_mode:
+            for reg in self.regularizers:
+                val = reg(self.model)
+                if not torch.is_tensor(val):
+                    val = torch.tensor(val, device=DEVICE)
+                reg_loss = reg_loss + val
 
-        # ----- SSL auxiliary -----
+        # ----- SSL auxiliary (Eq. 5) -----
         ssl_loss = torch.tensor(0.0, device=DEVICE)
 
-        if self.ssl_module is not None:
+        if self.adaptation_mode and self.ssl_module is not None:
             if hasattr(self.ssl_module, "loss"):
                 ssl_raw = self.ssl_module.loss(X)
                 ssl_loss = self.ssl_weight * ssl_raw
@@ -89,6 +88,8 @@ class StreamTrainer:
                     "SSL module must implement loss(X)"
                 )
 
+        # Eq. 5: Total Optimization Objective
+        # L_total = L_task + L_EWC + L_SSL
         loss = ce_loss + reg_loss + ssl_loss
 
         # ----- backward -----
@@ -101,6 +102,8 @@ class StreamTrainer:
                 self.grad_clip
             )
 
+        # Eq. 3: Meta-Learning Adaptation step (Inner-loop parameter update)
+        # θ'_t = θ - α∇_θ L_task(D_t; θ)
         self.optimizer.step()
 
         acc = self._accuracy_from_logits(logits, y)

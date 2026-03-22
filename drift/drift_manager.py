@@ -2,9 +2,7 @@ from typing import Dict, Optional, List
 
 from config import DRIFT_DELTA, DEBUG_DRIFT
 
-from .detectors.adwin_detector import ADWINDetector
-from .detectors.page_hinkley_detector import PageHinkleyDetector
-from .detectors.feature_drift import FeatureDriftDetector
+from .adwin import ADWINDetector
 from .drift_event import DriftEvent
 
 
@@ -34,14 +32,11 @@ class DriftManager:
         # ---------- detectors ----------
         self.detectors = [
             ADWINDetector(delta),
-            PageHinkleyDetector(),
         ]
 
-        self.feature_detector = FeatureDriftDetector()
+        self.feature_detector = None
 
-        self.total_detectors = len(self.detectors) + (
-            1 if self.feature_detector else 0
-        )
+        self.total_detectors = len(self.detectors)
 
         # ---------- state ----------
         self.step = 0
@@ -134,7 +129,10 @@ class DriftManager:
 
         for d in self.detectors:
             if hasattr(d, "reset"):
-                d.reset(self.delta)
+                try:
+                    d.reset(self.delta)
+                except TypeError:
+                    d.reset()
 
         if self.feature_detector and hasattr(
             self.feature_detector, "reset"

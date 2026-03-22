@@ -1,5 +1,5 @@
-from data.loaders.stream_loader import StreamLoader
-from models.baseline.mlp import BaselineMLP
+from data.stream_loader import StreamLoader
+from models.mlp import BaselineMLP
 from training.trainer import StreamTrainer
 
 loader = StreamLoader(scenario={"type": "none"})

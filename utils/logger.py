@@ -44,8 +44,8 @@ class ExperimentLogger:
     def _prepare_dirs(self):
         os.makedirs(LOG_DIR, exist_ok=True)
         os.makedirs(RESULTS_DIR, exist_ok=True)
-        os.makedirs(f"{RESULTS_DIR}/json", exist_ok=True)
-        os.makedirs(f"{RESULTS_DIR}/csv", exist_ok=True)
+        os.makedirs(f"{LOG_DIR}/json", exist_ok=True)
+        os.makedirs(f"{LOG_DIR}/csv", exist_ok=True)
 
     # -------------------------------------------------
     # Metric Logging
@@ -88,7 +88,7 @@ class ExperimentLogger:
     # -------------------------------------------------
 
     def save_json(self):
-        path = f"{RESULTS_DIR}/json/{self.run_id}.json"
+        path = f"{LOG_DIR}/json/{self.run_id}.json"
 
         payload = {
             "run_id": self.run_id,
@@ -108,10 +108,10 @@ class ExperimentLogger:
             return
 
         df = pd.DataFrame(self.metrics)
-        path = f"{RESULTS_DIR}/csv/{self.run_id}.csv"
+        path = f"{LOG_DIR}/csv/{self.run_id}.csv"
         df.to_csv(path, index=False)
 
-        print(f"Saved CSV log -> {os.path}")
+        print(f"Saved CSV log -> {path}")
 
     # -------------------------------------------------
     # Summary

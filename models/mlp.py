@@ -31,8 +31,7 @@ class BaselineMLP(nn.Module):
     ):
         super().__init__()
 
-        self.net = nn.Sequential(
-
+        self.features = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
             nn.BatchNorm1d(hidden_dim),
@@ -41,19 +40,26 @@ class BaselineMLP(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.BatchNorm1d(hidden_dim),
-            nn.Dropout(0.2),
-
+            nn.Dropout(0.2)
+        )
+        
+        self.classifier = nn.Sequential(
             nn.Linear(hidden_dim, num_classes)
         )
 
         self.to(DEVICE)
 
     # ---------------------------------
-    # Forward
+    # Forward & SSL Projection
     # ---------------------------------
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        """Eq 3: Forward task space mapping"""
+        return self.classifier(self.features(x))
+        
+    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
+        """Eq 5: Unsupervised latent extraction for SSL contrast"""
+        return self.features(x)
 
     # ---------------------------------
     # Prediction Helpers

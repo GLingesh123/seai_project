@@ -1,4 +1,4 @@
-from data.loaders.drift_injector import DriftInjector
+from data.drift_injector import DriftInjector
 
 scenario = {
     "type": "gradual",

@@ -1,4 +1,4 @@
-from data.loaders.stream_loader import StreamLoader
+from data.stream_loader import StreamLoader
 
 scenario = {
     "type": "gradual",

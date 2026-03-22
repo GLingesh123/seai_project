@@ -1,5 +1,5 @@
 import torch
-from models.baseline.mlp import BaselineMLP
+from models.mlp import BaselineMLP
 from config import INPUT_DIM, DEVICE
 
 model = BaselineMLP()

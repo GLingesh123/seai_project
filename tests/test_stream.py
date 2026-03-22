@@ -1,4 +1,4 @@
-from data.generators.synthetic_stream import SyntheticStream
+from data.synthetic_stream import SyntheticStream
 
 stream = SyntheticStream(input_dim=5, chunk_size=100)
 

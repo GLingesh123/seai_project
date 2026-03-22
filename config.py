@@ -47,14 +47,14 @@ DRIFT_GRADUAL_MAX_NOISE = 0.35
 # DRIFT DETECTION
 # =====================================================
 
-# more sensitive → earlier detection → lower latency
-DRIFT_DELTA = 0.005
+# higher delta = more sensitive
+DRIFT_DELTA = 0.99
 
 # easier trigger for unit tests
 DRIFT_DELTA_TEST = 0.1
 
 # SEAI uses stricter voting
-DRIFT_MIN_VOTES = 2
+DRIFT_MIN_VOTES = 1
 
 # baseline uses weaker voting (for comparison experiments)
 DRIFT_MIN_VOTES_BASELINE = 1
@@ -78,7 +78,7 @@ SSL_PRETRAIN_STEPS = 300
 # MODELS
 # =====================================================
 
-MLP_HIDDEN_DIM = 48
+MLP_HIDDEN_DIM = 128
 
 TRANSFORMER_DIM = 32
 TRANSFORMER_HEADS = 4
@@ -101,19 +101,19 @@ GRAD_CLIP = 5.0
 # =====================================================
 
 # bigger memory → better recovery
-REPLAY_BUFFER_SIZE = 8000
+REPLAY_BUFFER_SIZE = 500
 
 REPLAY_BATCH_SIZE = 128
 
 # stronger adaptation bursts after drift
-REPLAY_AFTER_DRIFT_STEPS = 10
+REPLAY_AFTER_DRIFT_STEPS = 25
 
 # =====================================================
 # CONTINUAL LEARNING — EWC
 # =====================================================
 
 # stronger constraint → less forgetting
-EWC_LAMBDA = 8.0
+EWC_LAMBDA = 20000.0
 
 # more fisher samples → better importance estimate
 EWC_FISHER_SAMPLES = 300

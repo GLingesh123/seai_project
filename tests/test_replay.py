@@ -1,5 +1,5 @@
 import numpy as np
-from replay.buffer import ReplayBuffer
+from continual_learning.replay_buffer import ReplayBuffer
 
 buf = ReplayBuffer(capacity=200)
 

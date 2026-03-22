@@ -1,4 +1,4 @@
-from experiments.logger import ExperimentLogger
+from utils.logger import ExperimentLogger
 
 logger = ExperimentLogger("test_run")
 

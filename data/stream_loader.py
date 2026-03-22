@@ -15,8 +15,8 @@ Fixes:
 
 from typing import Optional, Tuple, Dict
 
-from data.generators.synthetic_stream import SyntheticStream
-from data.loaders.drift_injector import DriftInjector
+from data.synthetic_stream import SyntheticStream
+from data.drift_injector import DriftInjector
 
 from config import (
     INPUT_DIM,
