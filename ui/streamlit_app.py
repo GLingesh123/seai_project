@@ -258,15 +258,23 @@ with tab_dash:
             try:
                 st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/accuracy_comparison.jpg"), use_container_width=True)
                 st.markdown("<br>", unsafe_allow_html=True)
+                st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/drift_accuracy.jpg"), use_container_width=True)
+                st.markdown("<br>", unsafe_allow_html=True)
                 st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/accuracy_advantage.jpg"), use_container_width=True)
                 
                 gc1, gc2 = st.columns(2)
                 with gc1:
                     st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/loss_comparison.jpg"), use_container_width=True)
                     st.markdown("<br>", unsafe_allow_html=True)
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/forgetting_comparison.jpg"), use_container_width=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
                     st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/latency_comparison.jpg"), use_container_width=True)
                 with gc2:
-                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/forgetting_comparison.jpg"), use_container_width=True)
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/forgetting_rate.jpg"), use_container_width=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/memory_usage.jpg"), use_container_width=True)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.image(str(PROJECT_ROOT / "results/baseline_vs_seai_comparisons/adaptation_time.jpg"), use_container_width=True)
                     
             except Exception as e:
                 st.error(f"Waiting for telemetry render streams... ({e})")

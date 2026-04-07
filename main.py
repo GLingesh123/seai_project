@@ -424,6 +424,50 @@ def plot_comparison_metrics(baseline_df: pd.DataFrame, seai_df: pd.DataFrame, sc
     add_drift_markers(ax5)
     organizer.save_plot('comparisons', 'forgetting_comparison.jpg', fig5); plt.close(fig5)
     
+    # 6. Drift specific accuracy (Zoomed in plot)
+    fig6, ax6 = plt.subplots(figsize=(10, 6))
+    drift_center = len(baseline_df) // 2
+    if scenario and scenario.get("steps"):
+        drift_center = scenario.get("steps")[0]
+    elif scenario and scenario.get("start"):
+        drift_center = scenario.get("start")
+    
+    start_idx = max(0, drift_center - 20)
+    end_idx = min(len(baseline_df), drift_center + 60)
+    
+    ax6.plot(baseline_df['step'][start_idx:end_idx], b_acc_s[start_idx:end_idx], label='Baseline Matrix', color='#ff4b4b', linewidth=2.5)
+    ax6.plot(seai_df['step'][start_idx:end_idx], s_acc_s[start_idx:end_idx], label='SEAI Engine', color='#00f2fe', linewidth=2.5)
+    style_axis(ax6, 'Post-Drift Specific Accuracy Recovery', 'Accuracy Ratio')
+    add_drift_markers(ax6)
+    organizer.save_plot('comparisons', 'drift_accuracy.jpg', fig6); plt.close(fig6)
+
+    # 7. Forgetting Rate (Derivative of Forgetting)
+    fig7, ax7 = plt.subplots(figsize=(10, 6))
+    b_forget_rate = b_forget.diff().fillna(0).rolling(window=smooth_w, min_periods=1).mean()
+    s_forget_rate = s_forget.diff().fillna(0).rolling(window=smooth_w, min_periods=1).mean()
+    ax7.plot(baseline_df['step'], b_forget_rate, label='Baseline Forgetting Rate', color='#ff4b4b', linewidth=2)
+    ax7.plot(seai_df['step'], s_forget_rate, label='SEAI Forgetting Rate', color='#00f2fe', linewidth=2)
+    ax7.axhline(0, color='#aaaaaa', linestyle='--', alpha=0.5)
+    style_axis(ax7, 'Dynamic Forgetting Rate Optimization', 'Rate of Memory Loss')
+    add_drift_markers(ax7)
+    organizer.save_plot('comparisons', 'forgetting_rate.jpg', fig7); plt.close(fig7)
+
+    # 8. Adaptation Time
+    fig8, ax8 = plt.subplots(figsize=(10, 6))
+    ax8.bar(baseline_df['step'], baseline_df['time_ms'], label='Baseline Compute', color='#ff4b4b', alpha=0.6)
+    ax8.plot(seai_df['step'], seai_df['time_ms'], label='SEAI Compute', color='#00f2fe', linewidth=2)
+    style_axis(ax8, 'Adaptation Recovery Timing', 'Compute Cycles (ms)')
+    add_drift_markers(ax8)
+    organizer.save_plot('comparisons', 'adaptation_time.jpg', fig8); plt.close(fig8)
+
+    # 9. Memory Resource Usage
+    fig9, ax9 = plt.subplots(figsize=(10, 6))
+    ax9.plot(baseline_df['step'], baseline_df['memory_kb'], label='Baseline Memory', color='#ff4b4b', linewidth=2)
+    ax9.plot(seai_df['step'], seai_df['memory_kb'], label='SEAI Memory Buffer', color='#00f2fe', linewidth=2)
+    style_axis(ax9, 'RAM & Virtual Memory Sizing', 'Memory Usage (KB)')
+    add_drift_markers(ax9)
+    organizer.save_plot('comparisons', 'memory_usage.jpg', fig9); plt.close(fig9)
+    
     plt.style.use('default')
 
 
