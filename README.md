@@ -1,4 +1,4 @@
-# Adaptive Learning in Non-Stationary Computer Science Environments with Self-Evolving AI Systems ⚡
+# Adaptive Learning in Non-Stationary Computer Science Environments with Self-Evolving AI Systems
 
 Many real-world Computer Science and Engineering (CSE) applications such as cybersecurity monitoring, IoT telemetry, and software log streams operate in non-stationary environments where data distributions change over time. Such distribution shifts, known as **concept drift**, significantly degrade the performance of static machine learning models. 
 
@@ -6,7 +6,7 @@ This project presents a **Self-Evolving Artificial Intelligence (SEAI)** framewo
 
 ---
 
-## 🧠 Core Concepts & How It Works
+##  Core Concepts & How It Works
 
 ### Concept Drift
 In real-world streams, the statistical properties of targeted variables evolve. SEAI utilizes the **ADWIN (Adaptive Windowing)** algorithm via a central `DriftManager` to monitor error signals contextually. When normal loss signals spike beyond a specific delta, the system detects "Drift" and dynamically triggers the complex adaptation strategies.
@@ -22,7 +22,7 @@ To rapidly stabilize the model upon executing an adaptation event, SEAI stores a
 
 ---
 
-## 🏗️ System Architecture & Technologies
+##  System Architecture & Technologies
 
 ### Technological Stack
 * **PyTorch:** The active core machine learning engine. It manages the multi-layer neural networks, calculates gradients, and processes the Fisher matrices for EWC constraints.
@@ -48,7 +48,7 @@ Through the analytics pipeline, SEAI captures structural telemetry:
 
 ---
 
-## 🛠️ Step 1: Project Setup & Installation
+##  Step 1: Project Setup & Installation
 
 Setup a contained environment utilizing `venv` to securely run the analytics pipeline locally.
 
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Step 2: Execution & Running the Dashboard
+##  Step 2: Execution & Running the Dashboard
 
 To launch the graphical web dashboard for immediate anomaly monitoring: 
 
@@ -86,7 +86,7 @@ streamlit run ui/streamlit_app.py
 
 ---
 
-## 💻 Step 3: Terminal Back-End (CLI)
+##  Step 3: Terminal Back-End (CLI)
 
 To bypass the web interface and purely generate native matrix calculations into the `results/` payload:
 
@@ -104,7 +104,7 @@ python main.py --scenario recurring --steps 300
 
 ---
 
-## 🧪 Step 4: Academic Unit Testing Battery
+##  Step 4: Academic Unit Testing Battery
 
 Mathematical testing guarantees continuous validity of the EWC and Replay structures during modifications.
 
