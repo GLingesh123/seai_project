@@ -138,3 +138,14 @@ pytest tests/test_adaptation_loop.py
 pytest tests/test_trainer.py
 pytest tests/test_logger.py
 ```
+
+**Note:** All test commands display detailed execution logs showing:
+- Test initialization details
+- Input/output shapes and values
+- Model parameters and gradients
+- Training statistics (loss, accuracy)
+- Drift detection and adaptation information
+- Batch processing status
+
+The logging is embedded in each test file, so just run the commands above to see the full details of how tests are executing!
+
